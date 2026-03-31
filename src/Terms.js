@@ -1,78 +1,102 @@
 import React from 'react';
-import './App.css';
 import { Link } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import './App.css';
 
 const Terms = () => {
   return (
-    <div className="pricing-page">
-      <div className="navbar">
-       <h2 style={{ fontWeight: 'bold' }}>Safe Click</h2>
-        <Link to="/" className="btn-outline">Back to Home</Link>
-      </div>
-        <h2 className="pricing-title">Terms of Service</h2>
-        <i>Effective Date: April 11, 2025</i>
-        <div className="terms-content">
-            <p>Welcome to SafeClick! These Terms of Service ("Terms") and 
-                Privacy Policy govern your use of our website and services.
-                By using SafeClick, you agree to these Terms. If you do not 
-                agree, please do not use our site.</p>
-            <h3>Our Service</h3>
-            <p>SafeClick provides a tool to help users check the safety of URLs and files using AI-based analysis. It is meant for informational and educational purposes only and is not a replacement for professional cybersecurity tools or advice.</p>
-            <h3>User Responsibilities</h3>
-            <ol>
-                <li>You agree to use SafeClick only for lawful purposes.
-                </li>
-                <li>You must not upload malicious, illegal, or harmful content.
-                </li>
-                <li>You are responsible for any content you submit through the service.
-                </li>
-            </ol>
-            <h3>Privacy and Data</h3>
-            <p>We respect your privacy. Uploaded files and URLs may be processed by our AI system for analysis, but we do not store or share your submissions unless explicitly stated.</p>
+    <div className="page-shell">
+      <Navbar />
+      <main className="page-main page-main--legal">
+        <p className="page-kicker">Legal</p>
+        <h1 className="page-title">Terms of Service</h1>
+        <p className="legal-meta">Effective date: April 11, 2025</p>
 
-            <h3>No Guarantees</h3>
-            <p>We strive to provide accurate results, but we do not guarantee that every analysis is 100% correct. Use your judgment and consult professionals for serious security decisions.</p>
-            
-            <h3>Modifications</h3>
-            <p>We may update these Terms occasionally. If we make major changes, we’ll post an update on this page. Continued use of the site means you accept the new Terms.</p>
+        <div className="legal-content">
+          <p>
+            Welcome to SafeClick AI. These Terms of Service (&quot;Terms&quot;) and our Privacy Policy
+            govern your use of our website and services. By using SafeClick AI, you agree to these
+            Terms. If you do not agree, please do not use our site.
+          </p>
 
-            <h3>Childrens Privacy</h3>
-            <p>SafeClick is not intended for users under 13. We do not knowingly collect personal information from children.
-            </p>
+          <h2>Our service</h2>
+          <p>
+            SafeClick AI provides tools to help you assess the safety of URLs and images using
+            automated analysis. It is for informational and educational purposes and is not a
+            substitute for professional security advice or enterprise-grade tooling.
+          </p>
 
-            <h3>Cookies and Tracking</h3>
-            <p>We do not use cookies or third-party trackers at this time.
-            </p>
+          <h2>User responsibilities</h2>
+          <ol>
+            <li>You agree to use SafeClick AI only for lawful purposes.</li>
+            <li>You must not upload malicious, illegal, or harmful content.</li>
+            <li>You are responsible for content you submit through the service.</li>
+          </ol>
 
-            <h3>Data Retention</h3>
-            <p>We do not permanently store URLs or files you submit. Uploaded data is processed temporarily and discarded after analysis.
-            </p>
+          <h2>Privacy and data</h2>
+          <p>
+            We respect your privacy. Submitted URLs and files may be processed to produce an
+            assessment; we do not intend to retain them longer than necessary for the scan.
+          </p>
 
-            <h3>Security</h3>
-            <p>We use secure communication protocols (HTTPS/TLS) to protect your data. However, no system is completely secure — use at your own risk.
-            </p>
-            
-            <h3>Your Rights</h3>
-            <ul>
-                <li>
-                View what data we have about you
-                </li>
-                <li>
-                Ask us to delete any retained information (if applicable)
+          <h2>No guarantees</h2>
+          <p>
+            We strive for accurate results but cannot guarantee that every analysis is complete or
+            correct. Use judgment and consult professionals for high-stakes decisions.
+          </p>
 
-                </li>
-            </ul>
-            <p>To make a request, contact us at contact@safeclick.ai</p>
+          <h2>Modifications</h2>
+          <p>
+            We may update these Terms from time to time. Continued use of the site means you accept
+            the updated Terms.
+          </p>
 
-            <h3>Contact Us</h3>
-            <p>f you have any questions about these Terms or our Privacy Policy, reach out anytime:
-            📧 contact@safeclick.ai</p>
+          <h2>Children&apos;s privacy</h2>
+          <p>SafeClick AI is not intended for users under 13.</p>
 
-            <p>By using SafeClick, you acknowledge that you've read and agreed to these Terms and our Privacy Policy. Thanks for using our service safely and responsibly!</p>
+          <h2>Cookies and tracking</h2>
+          <p>We minimize tracking; the free tier may use local storage for daily scan limits.</p>
 
+          <h2>Data retention</h2>
+          <p>
+            We do not intend to permanently store URLs or files you submit; data is processed to
+            return a result and then discarded as described in our Privacy Policy.
+          </p>
+
+          <h2>Security</h2>
+          <p>
+            We use secure communication where applicable. No system is perfectly secure—use at your
+            own risk.
+          </p>
+
+          <h2>Your rights</h2>
+          <ul>
+            <li>Request information about data we hold, where applicable.</li>
+            <li>Request deletion of retained information, where applicable.</li>
+          </ul>
+          <p>
+            Contact us at{' '}
+            <a href="mailto:contact@safeclick.ai">contact@safeclick.ai</a>.
+          </p>
+
+          <h2>Contact</h2>
+          <p>
+            Questions about these Terms or our Privacy Policy? Email{' '}
+            <a href="mailto:contact@safeclick.ai">contact@safeclick.ai</a>.
+          </p>
+
+          <p>
+            By using SafeClick AI, you acknowledge that you have read and agree to these Terms and
+            our Privacy Policy. Thank you for using our service responsibly.
+          </p>
         </div>
-      
-    
+
+        <Link to="/" className="btn btn--ghost btn--back">
+          ← Back to home
+        </Link>
+      </main>
+      <Footer />
     </div>
   );
 };

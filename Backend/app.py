@@ -1,6 +1,10 @@
+import logging
+import os
+
 from flask import Flask
 from routes.api import api_bp
-import os
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 app = Flask(__name__)
 app.register_blueprint(api_bp, url_prefix="/api")

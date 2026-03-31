@@ -1,416 +1,227 @@
-import re
-import requests
-import socket
-import whois
-import tldextract
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse
-from datetime import datetime
 import ipaddress
+import re
+import socket
+from datetime import datetime
+from urllib.parse import urlparse
+
+import requests
+import tldextract
+import whois
+from bs4 import BeautifulSoup
 
 FEATURE_NAMES = [
-    "having_IP_Address", "URL_Length", "Shortening_Service", "having_At_Symbol",
-    "double_slash_redirecting", "Prefix_Suffix", "having_Sub_Domain", "SSLfinal_State",
-    "Domain_registeration_length", "Favicon", "port", "HTTPS_token", "Request_URL",
-    "URL_of_Anchor", "Links_in_tags", "SFH", "Submitting_to_email", "Abnormal_URL",
-    "Redirect", "on_mouseover", "RightClick", "popUpWidnow", "Iframe",
-    "age_of_domain", "DNSRecord", "Web_Traffic", "Page_Rank", "Google_Index",
-    "Links_pointing_to_page", "Statistical_report"
+    "having_IP_Address",
+    "URL_Length",
+    "Shortening_Service",
+    "having_At_Symbol",
+    "double_slash_redirecting",
+    "Prefix_Suffix",
+    "having_Sub_Domain",
+    "SSLfinal_State",
+    "Domain_registeration_length",
+    "Favicon",
+    "port",
+    "HTTPS_token",
+    "Request_URL",
+    "URL_of_Anchor",
+    "Links_in_tags",
+    "SFH",
+    "Submitting_to_email",
+    "Abnormal_URL",
+    "Redirect",
+    "on_mouseover",
+    "RightClick",
+    "popUpWidnow",
+    "Iframe",
+    "age_of_domain",
+    "DNSRecord",
+    "Web_Traffic",
+    "Page_Rank",
+    "Google_Index",
+    "Links_pointing_to_page",
+    "Statistical_report",
 ]
 
-def is_url_safe(url):
-    """
-    Validates if a URL is safe to make requests to.
-    Checks for proper URL format, allowed schemes, and non-private IPs.
-    
-    Returns:
-        bool: True if URL is considered safe, False otherwise
-    """
+SHORTENERS = ("bit.ly", "tinyurl.com", "goo.gl", "ow.ly", "t.co", "rb.gy")
+MAX_EXTERNAL_REQUESTS = 3
+
+
+def is_url_safe(url: str) -> bool:
     try:
-        # Parse the URL
         parsed = urlparse(url)
-        
-        # Check scheme (only http and https allowed)
-        if parsed.scheme not in ['http', 'https']:
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
             return False
-        
-        # Check if domain is valid
-        if not parsed.netloc:
+        host = parsed.netloc.split(":")[0]
+        if host in ("localhost", "127.0.0.1", "::1") or host.startswith("127."):
             return False
-        
-        # Get domain without port
-        domain = parsed.netloc.split(':')[0]
-        
-        # Check for localhost references
-        if domain in ['localhost', '127.0.0.1', '::1'] or domain.startswith('127.'):
-            return False
-        
-        # Check if domain is an IP address
         try:
-            ip = ipaddress.ip_address(domain)
-            # Check if IP is private, loopback, link-local, etc.
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 return False
         except ValueError:
-            # Not an IP address, continue with domain validation
             pass
-                
         return True
     except Exception:
         return False
 
-def safe_request_get(url, **kwargs):
-    """
-    Makes a safe HTTP GET request after validating the URL.
-    
-    Args:
-        url (str): The URL to request
-        **kwargs: Additional arguments to pass to requests.get
-        
-    Returns:
-        Response or None: The response if successful and URL was safe, None otherwise
-    """
+
+def safe_request_get(url: str, **kwargs):
     if not is_url_safe(url):
         return None
-    
     try:
         return requests.get(url, **kwargs)
     except Exception:
         return None
 
-def extract_features_from_url(url):
-    features = []
+
+def _domain_registration_length_days(whois_data) -> int:
+    if not whois_data:
+        return 0
+    exp = getattr(whois_data, "expiration_date", None)
+    cre = getattr(whois_data, "creation_date", None)
+    if isinstance(exp, list):
+        exp = exp[0]
+    if isinstance(cre, list):
+        cre = cre[0]
+    if exp and cre and isinstance(exp, datetime) and isinstance(cre, datetime):
+        return max((exp - cre).days, 0)
+    return 0
+
+
+def _age_of_domain_days(whois_data) -> int:
+    if not whois_data:
+        return 0
+    cre = getattr(whois_data, "creation_date", None)
+    if isinstance(cre, list):
+        cre = cre[0]
+    if cre and isinstance(cre, datetime):
+        return max((datetime.now() - cre).days, 0)
+    return 0
+
+
+def extract_features_from_url(url: str):
+    if not is_url_safe(url):
+        return [1] * len(FEATURE_NAMES)
+
     parsed = urlparse(url)
     domain = parsed.netloc
-    path = parsed.path
-    full_domain = f"{tldextract.extract(url).domain}.{tldextract.extract(url).suffix}"
-
-    # Request page content - FIXED: Added URL validation before making request
-    try:
-        response = safe_request_get(url, timeout=5)
-        if response:
-            html = response.text
-            soup = BeautifulSoup(html, 'html.parser')
-        else:
-            html = ""
-            soup = None
-    except:
-        html = ""
-        soup = None
-
-    if not url or not isinstance(url, str):
-        return False, "URL must be a non-empty string"
-        
-    # Basic URL format validation (must start with http:// or https://)
-    if not url.startswith(('http://', 'https://')):
-        return False, "URL must start with http:// or https://"
-    
-    # Parse the URL
-    try:
-        parsed = urlparse(url)
-        if not parsed.netloc:
-            return False, "URL must have a valid domain"
-            
-        # Get domain info
-        domain_info = tldextract.extract(url)
-        domain = f"{domain_info.domain}.{domain_info.suffix}"
-        
-        # Check for IP-based URLs - allow but note them as potentially risky
-        if re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", parsed.netloc):
-            pass
-            
-        # Check domain against blocklist
-        if domain in DOMAIN_BLOCKLIST:
-            return False, f"Domain {domain} is in blocklist"
-            
-        # Check for overly complex URLs (potential obfuscation)
-        if url.count('?') > 3 or url.count('&') > 10:
-            return False, "URL has too many query parameters"
-            
-        # Detect URL encoding attacks
-        if '%25' in url.lower() or '%00' in url.lower():
-            return False, "URL contains suspicious encoded characters"
-            
-        return True, "URL is safe"
-        
-    except Exception as e:
-        return False, f"URL validation error: {str(e)}"
-
-def extract_features_from_url(url):
-    """
-    Extract features from a URL for ML classification.
-    The URL is first validated for basic safety.
-    """
-    # Validate URL before processing
-    is_safe, reason = is_url_safe(url)
-    if not is_safe:
-        # Instead of rejecting completely, we'll set default values that indicate high risk
-        features = [1] * len(FEATURE_NAMES)  # Default to high-risk indicators
-        return features
-    
-    features = []
-    parsed = urlparse(url)
-    domain = parsed.netloc
-    path = parsed.path
-    
-    # Extract domain info
+    path = parsed.path or ""
     domain_info = tldextract.extract(url)
-    full_domain = f"{domain_info.domain}.{domain_info.suffix}"
-    
-    # Track the number of external requests to prevent DoS
-    external_request_count = 0
-    
-    # Request page content with better error handling and timeouts
+    full_domain = f"{domain_info.domain}.{domain_info.suffix}" if domain_info.suffix else domain_info.domain
+
+    response = None
     html = ""
     soup = None
-    response = None
-    
-    if external_request_count < MAX_EXTERNAL_REQUESTS:
-        try:
-            response = requests.get(url, timeout=3, allow_redirects=True, 
-                                   headers={"User-Agent": "Mozilla/5.0"})
-            external_request_count += 1
-            html = response.text
-            soup = BeautifulSoup(html, 'html.parser')
-        except:
-            # Fail silently but log the error in a production system
-            pass
-    
-    # WHOIS data with better error handling
+    external_requests = 0
+
+    response = safe_request_get(url, timeout=3, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+    if response is not None:
+        external_requests += 1
+        html = response.text or ""
+        soup = BeautifulSoup(html, "html.parser")
+
     whois_data = None
-    if external_request_count < MAX_EXTERNAL_REQUESTS:
+    if external_requests < MAX_EXTERNAL_REQUESTS:
         try:
             whois_data = whois.whois(full_domain)
-            external_request_count += 1
-        except:
-            # Fail silently
-            pass
+            external_requests += 1
+        except Exception:
+            whois_data = None
 
-    # 1. IP in URL
-    features.append(1 if re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", domain) else -1)
+    features = []
 
-    # 2. URL Length
-        response = requests.get(url, timeout=5)
-        html = response.text
-        soup = BeautifulSoup(html, 'html.parser')
-    except:
-        html = ""
-        soup = None
-
-    # WHOIS data
-    try:
-        whois_data = whois.whois(full_domain)
-    except:
-        whois_data = None
-
-    # 1. IP in URL
-    features.append(1 if re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", domain) else -1)
-
-    # 2. URL Length
+    features.append(1 if re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", domain.split(":")[0]) else -1)
     features.append(1 if len(url) >= 75 else 0 if len(url) >= 54 else -1)
+    features.append(1 if any(s in domain.lower() for s in SHORTENERS) else -1)
+    features.append(1 if "@" in url else -1)
+    features.append(1 if url.rfind("//") > 7 else -1)
+    features.append(1 if "-" in domain_info.domain else -1)
 
+    subdomain_count = 0 if not domain_info.subdomain else len(domain_info.subdomain.split("."))
+    features.append(1 if subdomain_count > 2 else 0 if subdomain_count == 2 else -1)
+    features.append(-1 if parsed.scheme == "https" else 1)
 
-    # 18. Abnormal URL
-    features.append(1 if domain not in url else -1)
+    reg_days = _domain_registration_length_days(whois_data)
+    features.append(-1 if reg_days >= 365 else 1)
 
-    # 19. Redirect count - FIXED: Added URL validation before making request
-    try:
-        r = safe_request_get(url, timeout=5)
-        features.append(1 if r and len(r.history) > 3 else 0 if r and len(r.history) else -1)
-    except:
-        features.append(-1)
+    icon = soup.find("link", rel=lambda x: x and "icon" in x.lower()) if soup else None
+    icon_href = icon.get("href", "") if icon else ""
+    features.append(-1 if icon_href and domain in icon_href else 1)
 
-    # 20. onmouseover
-    # 7. Subdomain
-    subdomain_count = domain.count('.')
-        features.append(-1)
+    features.append(1 if parsed.port else -1)
+    features.append(1 if "https" in domain_info.domain.lower() else -1)
 
-    # 10. Favicon external
-    try:
-        icon = soup.find("link", rel=lambda x: x and 'icon' in x.lower()) if soup else None
-        if icon and icon.get('href'):
-            features.append(-1 if domain not in icon['href'] else 1)
-        else:
-            features.append(1)
-            upd = whois_data.updated_date
-            if isinstance(exp, list): exp = exp[0]
-            if isinstance(upd, list): upd = upd[0]
-            duration = (exp - upd).days
-            features.append(1 if duration > 365 else -1)
-        else:
-            features.append(-1)
-    features.append(1 if 'https' in domain.lower() else -1)
-
-    # 13. Request URL external content (e.g., images/scripts)
-    try:
-        if soup:
-            total = 0
-            external = 0
-            for tag in soup.find_all(['img', 'script'], src=True):
-        features.append(-1)
-    except:
+    req_tags = soup.find_all(["img", "script"], src=True) if soup else []
+    if req_tags:
+        external = sum(1 for t in req_tags if domain not in t.get("src", ""))
+        ratio = external / len(req_tags)
+        features.append(1 if ratio > 0.61 else 0 if ratio > 0.22 else -1)
+    else:
         features.append(1)
 
-    # 26. Web Traffic (simulate with reachability check) - FIXED: Added URL validation
-    try:
-        traffic_url = f"https://www.{full_domain}"
-        traffic = safe_request_get(traffic_url, timeout=5)
-        features.append(1 if traffic and traffic.status_code == 200 else -1)
-    except:
-        features.append(-1)
+    anchors = soup.find_all("a", href=True) if soup else []
+    if anchors:
+        unsafe = sum(1 for a in anchors if domain not in a.get("href", "") and not a.get("href", "").startswith("#"))
+        ratio = unsafe / len(anchors)
+        features.append(1 if ratio > 0.67 else 0 if ratio > 0.31 else -1)
+    else:
+        features.append(1)
 
-    # 27. Page Rank (simulate with number of anchor tags with hrefs)
-        if soup:
-            anchors = soup.find_all('a', href=True)
-        features.append(1 if len(anchors) > 50 else 0 if 10 < len(anchors) <= 50 else -1)
-    except:
-        features.append(-1)
+    meta_tags = soup.find_all(["meta", "link", "script"]) if soup else []
+    if meta_tags:
+        external = sum(1 for t in meta_tags if domain not in str(t))
+        ratio = external / len(meta_tags)
+        features.append(1 if ratio > 0.81 else 0 if ratio > 0.17 else -1)
+    else:
+        features.append(1)
 
-    # 28. Google Index (try searching site:domain using Google) - FIXED: Added URL validation
-    try:
-        search_url = f"https://www.google.com/search?q=site:{full_domain}"
-        if is_url_safe(search_url):
-            headers = {"User-Agent": "Mozilla/5.0"}
-            result = safe_request_get(search_url, headers=headers, timeout=5)
-            features.append(1 if result and "did not match any documents" not in result.text else -1)
-        else:
-            features.append(-1)
-    except:
-        features.append(-1)
+    forms = soup.find_all("form") if soup else []
+    if forms:
+        form_risk = -1
+        for form in forms:
+            action = (form.get("action") or "").strip().lower()
+            if action in ("", "about:blank"):
+                form_risk = 1
+                break
+            if domain not in action and not action.startswith("/"):
+                form_risk = 0
+        features.append(form_risk)
+    else:
+        features.append(1)
 
-    # 29. Links pointing to page (simulate by counting backlinks in soup)
-            unsafe = sum(1 for tag in tags if domain not in str(tag))
-            ratio = unsafe / total if total else 0
-            features.append(1 if ratio > 0.81 else 0 if 0.17 < ratio <= 0.81 else -1)
-        else:
-            features.append(1)  # Default to suspicious if no soup
-    except:
-        features.append(-1)
-
-    # 16. SFH (server form handler)
-        features.append(1 if any(b in url for b in blacklist) else -1)
-    except:
-        features.append(-1)
-
-    return features
-                    features.append(1)
-                    break
-                elif domain not in f.get('action', ''):
-                    features.append(0)
-                    break
-            else:
-                features.append(-1)
-        else:
-            features.append(1)  # Default to suspicious if no soup
-    except:
-        features.append(-1)
-
-    # 17. Submitting to email
-    features.append(1 if html and "mailto:" in html else -1)
-
-    # 18. Abnormal URL
+    features.append(1 if "mailto:" in html.lower() else -1)
     features.append(1 if domain not in url else -1)
 
-    # 19. Redirect count - reuse response instead of making a new request
-    try:
-        if response:
-            features.append(1 if len(response.history) > 3 else 0 if len(response.history) else -1)
-        else:
-            features.append(1)  # Default to suspicious if no response
-    except:
-        features.append(-1)
+    if response is not None:
+        history_len = len(response.history)
+        features.append(1 if history_len > 3 else 0 if history_len > 0 else -1)
+    else:
+        features.append(1)
 
-    # 20. onmouseover
-    features.append(1 if html and "onmouseover" in html else -1)
-
-    # 21. Right click disabled
-    features.append(1 if html and "event.button==2" in html else -1)
-
-    # 22. Popup
-    features.append(1 if html and "window.open" in html else -1)
-
-    # 23. iframe
+    features.append(1 if "onmouseover" in html.lower() else -1)
+    features.append(1 if "event.button==2" in html.lower() else -1)
+    features.append(1 if "window.open" in html.lower() else -1)
     features.append(1 if soup and soup.find("iframe") else -1)
 
-        r = requests.get(url, timeout=5)
-        features.append(1 if len(r.history) > 3 else 0 if len(r.history) else -1)
-    except:
-        features.append(-1)
+    age_days = _age_of_domain_days(whois_data)
+    features.append(-1 if age_days >= 180 else 1)
 
-    # 20. onmouseover
-    features.append(1 if "onmouseover" in html else -1)
-
-            features.append(-1)
-    except:
-        features.append(-1)
-
-    # 25. DNS record - limit requests
-    if external_request_count < MAX_EXTERNAL_REQUESTS:
-        try:
-            socket.gethostbyname(domain)
-            external_request_count += 1
-            features.append(-1)
-        except:
-            features.append(1)
-    else:
-        features.append(1)  # Default to suspicious if max requests reached
-
-    # 26. Web Traffic - limit external request, reuse existing when possible
-    if external_request_count < MAX_EXTERNAL_REQUESTS:
-        try:
-            traffic = requests.get(f"https://www.{full_domain}", timeout=3)
-            external_request_count += 1
-            features.append(1 if traffic.status_code == 200 else -1)
-        except:
-            features.append(-1)
-    else:
-        features.append(1)  # Default to suspicious
-
-    # 27. Page Rank (simulate with number of anchor tags with hrefs)
     try:
-        if soup:
-            anchors = soup.find_all('a', href=True)
-            features.append(1 if len(anchors) > 50 else 0 if 10 < len(anchors) <= 50 else -1)
-        else:
-            features.append(1)  # Default to suspicious if no soup
-    except:
+        socket.gethostbyname(domain.split(":")[0])
         features.append(-1)
+    except Exception:
+        features.append(1)
 
-    # 28. Google Index - skip this request entirely since it's risky and unreliable
-    features.append(0)  # Neutral score instead of making external request
+    traffic_resp = safe_request_get(f"https://www.{full_domain}", timeout=3)
+    features.append(1 if traffic_resp and traffic_resp.status_code == 200 else -1)
 
-    # 29. Links pointing to page (simulate by counting backlinks in soup)
-    try:
-        if soup:
-            backlinks = [a for a in soup.find_all('a', href=True) if full_domain in a['href']]
-            features.append(1 if len(backlinks) > 5 else 0 if len(backlinks) > 1 else -1)
-        else:
-            features.append(1)  # Default to suspicious if no soup
-    except:
-        features.append(-1)
+    features.append(1 if len(anchors) > 50 else 0 if len(anchors) > 10 else -1)
+    features.append(0)
 
-    # 30. Statistical report - avoid making additional requests
-    try:
-        blacklist = ['malwaredomainlist.com', 'phishtank.org', 'stopbadware.org', 'clean-mx.com', 'malc0de.com']
-        features.append(1 if any(b in url for b in blacklist) else -1)
-    except:
-        features.append(-1)
+    backlinks = [a for a in anchors if full_domain and full_domain in a.get("href", "")]
+    features.append(1 if len(backlinks) > 5 else 0 if len(backlinks) > 1 else -1)
 
-    return features
-        features.append(-1)
-
-    # 29. Links pointing to page (simulate by counting backlinks in soup)
-    try:
-        backlinks = [a for a in soup.find_all('a', href=True) if full_domain in a['href']]
-        features.append(1 if len(backlinks) > 5 else 0 if len(backlinks) > 1 else -1)
-    except:
-        features.append(-1)
-
-    # 30. Statistical report (real domain/URL check against PhishTank-style blacklist)
-    try:
-        blacklist = ['malwaredomainlist.com', 'phishtank.org', 'stopbadware.org', 'clean-mx.com', 'malc0de.com']
-        features.append(1 if any(b in url for b in blacklist) else -1)
-    except:
-        features.append(-1)
+    blacklist = ("malwaredomainlist.com", "phishtank.org", "stopbadware.org", "clean-mx.com", "malc0de.com")
+    features.append(1 if any(b in url.lower() for b in blacklist) else -1)
 
     return features

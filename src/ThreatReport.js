@@ -1,161 +1,119 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import {
+  polishReportText,
+  recommendationForVerdict,
+  verdictFromPrediction,
+} from './utils/reportText';
 import './App.css';
+
+const FUN_FACTS = [
+  'Billions of phishing attempts are sent every day—most are blocked, but the rest rely on one careless click.',
+  'Many phishing sites stay online only for hours; speed of judgment matters.',
+  'A large share of breaches start with a single deceptive link or attachment.',
+  'Attackers often impersonate trusted brands—your pause before clicking is the best filter.',
+];
 
 const ThreatReport = () => {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const {
-    confidence = "N/A",
+    confidence = 'N/A',
     prediction: directPrediction,
-    report = "No report generated.",
+    report = '',
     raw = {},
-    url = "Unknown",
-    source = "Unknown Source"
+    url = 'Unknown',
+    source = 'Unknown',
   } = location.state || {};
 
-  const prediction = (directPrediction || raw.prediction || "").toLowerCase();
+  const prediction = directPrediction || raw.prediction || '';
+  const verdict = verdictFromPrediction(prediction);
+  const polishedReport = polishReportText(report, prediction);
+  const rec = recommendationForVerdict(verdict.key);
+  const funFact = FUN_FACTS[Math.floor(Math.random() * FUN_FACTS.length)];
 
-  let verdict = {
-    label: "Unknown",
-    color: "#ccc",
-    text: "Not enough information.",
-    emoji: "❓",
-  };
+  const verdictClass =
+    verdict.key === 'safe'
+      ? 'verdict-badge verdict-badge--safe'
+      : verdict.key === 'suspicious'
+        ? 'verdict-badge verdict-badge--suspicious'
+        : verdict.key === 'malicious'
+          ? 'verdict-badge verdict-badge--malicious'
+          : 'verdict-badge verdict-badge--inconclusive';
 
-  if (prediction === "legitimate") {
-    verdict = {
-      label: "Safe",
-      color: "#d4edda",
-      text: "✅ This website appears safe and trustworthy.",
-      emoji: "🟢",
-    };
-  } else if (prediction === "suspicious") {
-    verdict = {
-      label: "Suspicious",
-      color: "#fff3cd",
-      text: "⚠️ This website may be suspicious. Review with caution.",
-      emoji: "🟡",
-    };
-  } else if (prediction === "phishing" || prediction === "malicious") {
-    verdict = {
-      label: "Phishing Risk",
-      color: "#f8d7da",
-      text: "🚨 This website is likely dangerous or malicious.",
-      emoji: "🔴",
-    };
+  if (!location.state) {
+    return (
+      <div className="page-shell">
+        <Navbar />
+        <main className="page-main page-main--narrow report-empty">
+          <h1 className="page-title">No scan data</h1>
+          <p className="page-lead">Run a scan from the home page to see a report here.</p>
+          <Link to="/" className="btn btn--primary">
+            Back to home
+          </Link>
+        </main>
+        <Footer />
+      </div>
+    );
   }
-  
-
-  const funFacts = [
-    'Nearly 3.4 billion phishing emails are sent every day.',
-    'Most phishing sites only last around 15 hours.',
-    'Over 90% of data breaches start with phishing.',
-    'Financial institutions are the most targeted.',
-    'Phishing costs companies billions yearly.',
-  ];
-  const funFact = funFacts[Math.floor(Math.random() * funFacts.length)];
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Segoe UI, sans-serif', backgroundColor: '#f9fcff', minHeight: '100vh' }}>
-      <button
-        onClick={() => navigate('/')}
-        style={{
-          position: 'absolute',
-          top: '1rem',
-          right: '1rem',
-          padding: '0.6rem 1.2rem',
-          fontSize: '0.9rem',
-          borderRadius: '8px',
-          backgroundColor: '#4f7df9',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        Back to Home
-      </button>
-
-      <h1 style={{ fontSize: '2.4rem', textAlign: 'center' }}>Threat Report</h1>
-
-      {/* Verdict Box */}
-      <div
-        style={{
-          backgroundColor: verdict.color,
-          padding: '1rem',
-          borderRadius: '12px',
-          width: '85%',
-          maxWidth: '750px',
-          margin: '1rem auto',
-          fontSize: '1.1rem',
-          fontWeight: 'bold',
-          textAlign: 'center',
-        }}
-      >
-        {verdict.emoji} {verdict.text}
-      </div>
-
-      {/* URL Info */}
-      <div
-        style={{
-          backgroundColor: '#eef6ff',
-          padding: '1rem',
-          borderRadius: '12px',
-          width: '85%',
-          maxWidth: '750px',
-          margin: '1rem auto',
-          fontSize: '1rem',
-          textAlign: 'center',
-          color: '#333',
-        }}
-      >
-        <p><strong>Scanned URL:</strong> {url}</p>
-        <p><strong>Source:</strong> {source}</p>
-      </div>
-
-      {/* LLM Summary */}
-      <div
-        style={{
-          backgroundColor: '#f4fff6',
-          border: '1px solid #a3e4a2',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          width: '90%',
-          maxWidth: '800px',
-          margin: '2rem auto',
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
-          lineHeight: '1.6',
-          fontSize: '1rem',
-          color: '#333',
-        }}
-      >
-        <div style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-          🧠 <strong>LLM Threat Analysis</strong>
+    <div className="page-shell">
+      <Navbar />
+      <main className="page-main report-page">
+        <div className="report-page__toolbar">
+          <Link to="/" className="btn btn--ghost btn--sm">
+            ← New scan
+          </Link>
         </div>
-        <p style={{ whiteSpace: 'pre-wrap' }}>{report}</p>
-        <div style={{ marginTop: '1rem', fontWeight: 'bold', color: '#006600' }}>
-          Confidence Score: {confidence}
-        </div>
-      </div>
 
-      {/* Fun Fact */}
-      <div
-        style={{
-          backgroundColor: '#fff6d6',
-          padding: '1rem',
-          borderRadius: '12px',
-          width: '80%',
-          maxWidth: '700px',
-          margin: '2rem auto',
-          textAlign: 'center',
-          fontSize: '1.05rem',
-          fontWeight: 500,
-          color: '#7a5a00',
-        }}
-      >
-        📢 Fun Fact: {funFact}
-      </div>
+        <header className="report-header">
+          <span className={verdictClass}>{verdict.label}</span>
+          <h1 className="report-header__title">Threat assessment</h1>
+          <p className="report-header__url" title={url}>
+            {url}
+          </p>
+          <dl className="report-meta">
+            <div>
+              <dt>Source</dt>
+              <dd>{source}</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd className="report-confidence">{confidence}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <div className="report-grid">
+          <section className="report-card report-card--analysis" aria-labelledby="analysis-title">
+            <h2 id="analysis-title" className="report-card__title">
+              Analysis
+            </h2>
+            <p className="report-card__body report-card__body--analysis">{polishedReport}</p>
+          </section>
+
+          <aside className="report-sidebar">
+            <section className="report-card report-card--rec" aria-labelledby="rec-title">
+              <h2 id="rec-title" className="report-card__title">
+                Recommendation
+              </h2>
+              <p className="rec-title">{rec.title}</p>
+              <p className="rec-body">{rec.body}</p>
+            </section>
+
+            <section className="report-card report-card--fact" aria-labelledby="fact-title">
+              <h2 id="fact-title" className="report-card__title">
+                Stay sharp
+              </h2>
+              <p className="fact-body">{funFact}</p>
+            </section>
+          </aside>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 };

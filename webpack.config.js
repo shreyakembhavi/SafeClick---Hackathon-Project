@@ -18,11 +18,19 @@ module.exports = {
       {
         test: /\.css$/i,
         use: ['style-loader', 'css-loader'],
-      }
+      },
+      {
+        test: /\.m?js$/,
+        resolve: { fullySpecified: false },
+        include: /node_modules[\\/]react-router/,
+        type: 'javascript/auto',
+      },
     ],
   },
   resolve: {
-    extensions: ['.js', '.jsx'],
+    extensions: ['.js', '.jsx', '.mjs'],
+    // Prefer browser/default over react-server so `react` resolves to full exports (fixes react-router + webpack 5).
+    conditionNames: ['browser', 'require', 'default', 'import'],
   },
   plugins: [
     new HtmlWebpackPlugin({
