@@ -35,25 +35,18 @@ flowchart TD
     C -- Yes --> D["Tesseract OCR"]
     C -- No --> E["URL normalization"]
     D --> E
-    E --> F["30 URL and domain features"]
+    E --> F["30+ phishing features"]
     F --> G["Logistic regression classifier"]
     G --> H["Verdict and confidence"]
     H --> I["Local LLM explanation"]
     I --> J["React threat report"]
 ```
 
-### Signals evaluated
+### Machine-learning approach
 
-The feature-extraction layer represents each URL using 30 indicators, including:
+The hackathon classifier was trained on more than 30 phishing features. The extracted feature vector is evaluated by a scikit-learn logistic-regression model, which returns a predicted class and confidence score.
 
-- IP-address and URL-length patterns
-- URL shorteners, redirects, subdomains, and suspicious symbols
-- HTTPS and certificate-related signals
-- Domain registration length, domain age, WHOIS, and DNS availability
-- External resources, anchors, forms, iframes, and page behavior
-- Traffic, indexing, backlink, and statistical-risk indicators
-
-The resulting feature vector is evaluated by a scikit-learn logistic-regression model. Confidence thresholds translate the model output into safe, suspicious, or malicious classifications.
+This README intentionally does not enumerate the later signal set used by the current SafeClick product. The production platform is maintained separately and has evolved beyond this prototype.
 
 ## My contributions
 
@@ -61,7 +54,7 @@ This was a team-built hackathon project. My work focused on the product directio
 
 - Helped shape the initial SafeClick concept and user flow
 - Designed the end-to-end phishing-detection pipeline
-- Implemented the 30-feature URL extraction layer
+- Implemented the 30+ phishing-feature extraction pipeline
 - Built and trained the logistic-regression classifier
 - Connected the model output to verdict and confidence scoring
 - Helped develop and deliver the competition pitch
