@@ -1,3 +1,31 @@
-/Backend/.venv
-node_modules
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+firebase-cred.json
+*service-account*.json
+
+# Runtime files
+uploads/
+logs/
+*.log
+
+# OS and editor files
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/

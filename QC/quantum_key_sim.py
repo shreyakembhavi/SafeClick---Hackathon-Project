@@ -1,12 +1,10 @@
 # file: quantum_key_sim.py
 
-# from qiskit_ibm_provider import IBMProvider
 from qiskit import Aer, QuantumCircuit, execute
 import random
 import hashlib
 
-# Paste your IBM Quantum token here
-IBM_QUANTUM_TOKEN = '1494747394491cab3d6e6c055f8a0745e1f1898098a6ada8ab0fc8e529d7cc1aba1a4c2639eadbc88e0a6ae80c6ca3d7e07f2b37da32ea43d5b194613c35b8dc'
+# This prototype runs entirely on a local Qiskit simulator and requires no IBM credentials.
 
 def setup_backend():
     print("[!] Forcing local simulator (offline mode)")
